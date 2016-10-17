@@ -35,13 +35,15 @@ void Print_matrix(int loc_mat[], int n, int loc_n,
         MPI_Datatype blk_col_mpi_t, int my_rank, MPI_Comm comm);
 
 // core functions
-void Find_min_dist();
-void Dijkstra();
+void Dijkstra(int n, int loc_n, int *loc_mat, int *loc_dist, 
+        int *loc_pred, int my_rank, MPI_Comm comm);
+        void Find_min_dist();
+int Find_min_dist(int loc_n, int *loc_dist, int *loc_known, 
+        int my_rank, MPI_Comm comm);
 
 // output functions
 void Print_dists();
 void Print_paths();
-
 
 
 int main(int argc, char const *argv[])
@@ -84,28 +86,41 @@ int main(int argc, char const *argv[])
 void Dijkstra(int n, int loc_n, int *loc_mat, int *loc_dist, 
         int *loc_pred, int my_rank, MPI_Comm comm) {
     
+    // initialization
+    int *loc_known = molloc(loc_n * sizeof(int));
+    for (int v = 0; v < loc_n; ++v) {
+        loc_dist[v] = loc_mat[v];
+        loc_pred[v] = 0;
+        loc_known[v] = 0;
+    }
     
+    if (my_rank != 0) {
+        
+    }
+    else {
+        
+    }
     
+    free(loc_known);
 }
 
 // Find the minimam number of loc_dist[] whose distance is unknown
 // each process will be distributed loc_n = n / p vertices
-void Find_min_dist(int loc_n, int *loc_dist, int *loc_known, 
+int Find_min_dist(int loc_n, int *loc_dist, int *loc_known, 
         int my_rank, MPI_Comm comm) {
-    int my_min[2], glbl_min[2];
+    
     int loc_u = -1, loc_min_dist = INFINITY;
     
     for (int v = 0; v < loc_n; ++v) {
         if (loc_known[v] == 0) {
             if (loc_dist[v] < loc_min_dist) {
                 loc_u = v;
-                
+                loc_min_dist = loc_dist[v];
             }
-                
         }
     }
     
-    
+    return loc_u;
 }
 
 /*---------------------------------------------------------------------
