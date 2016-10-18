@@ -38,8 +38,8 @@ void Find_min_dist(int* my_min,int loc_n, int *loc_dist, int *loc_known,
         int my_rank, MPI_Comm comm);
 
 // output functions
-void Print_dists();
-void Print_paths();
+void Print_dists(int dist[], int n);
+void Print_paths(int pred[], int n);
 
 
 int main(int argc, char const *argv[])
@@ -75,15 +75,15 @@ int main(int argc, char const *argv[])
 
     //local initialization
     for(v = 0; v < loc_n; v++) {
-      loc_pred[v] = 0;
-      loc_known[v] = 0;
-      loc_dist[v] = loc_mat[v];
+        loc_pred[v] = 0;
+        loc_known[v] = 0;
+        loc_dist[v] = loc_mat[v];
     }
     //local initialization end
 
     //gather information
     if(my_rank == 0) {
-      loc_known[0] = 1;
+        loc_known[0] = 1;
     }
     MPI_Allgather(loc_known, loc_n, MPI_INT, glo_known, loc_n, MPI_INT, comm);
     MPI_Allgather(loc_pred, loc_n, MPI_INT, glo_pred, loc_n, MPI_INT, comm);
@@ -91,54 +91,55 @@ int main(int argc, char const *argv[])
     //allgather end
 
     for(i = 1; i < n; i++){
-      Find_min_dist(my_min, loc_n, loc_dist, loc_known, my_rank, comm);
+        Find_min_dist(my_min, loc_n, loc_dist, loc_known, my_rank, comm);
 
-      MPI_Allreduce(my_min, glo_min, 1, MPI_2INT, MPI_MINLOC, comm);
-      u = glo_min[1];
+        MPI_Allreduce(my_min, glo_min, 1, MPI_2INT, MPI_MINLOC, comm);
+        u = glo_min[1];
 
-      //if(my_rank == 0)
-        //printf("%d %d \n", u, glo_min[0]);
-
-
-      glo_known[u] = 1;
-
-      if(my_rank == u / loc_n) {
-        loc_known[u%loc_n] = 1;
-      }//for rank where u locate, update global known info
-
-      for(v = 0; v < loc_n; v++) {
-        if(loc_known[v] == 0) {
-          loc_new_dist = glo_dist[u] + loc_mat[u*loc_n + v];
-          if(loc_new_dist < loc_dist[v]) {
-            loc_dist[v] = loc_new_dist;
-            loc_pred[v] = u;
-          }
+        //if(my_rank == 0)
+            //printf("%d %d \n", u, glo_min[0]);
+        
+        glo_known[u] = 1;
+        
+        //for rank where u locate, update global known info
+        if(my_rank == u / loc_n) {
+            loc_known[u%loc_n] = 1;
         }
-      }//update local distance and pred info
+        
+        //update local distance and pred info
+        for(v = 0; v < loc_n; v++) {
+            if(loc_known[v] == 0) {
+                loc_new_dist = glo_dist[u] + loc_mat[u*loc_n + v];
+                if(loc_new_dist < loc_dist[v]) {
+                    loc_dist[v] = loc_new_dist;
+                    loc_pred[v] = u;
+                }
+            }
+        }
 
-      //update global distance and pred info
-      MPI_Allgather(loc_pred, loc_n, MPI_INT, glo_pred, loc_n, MPI_INT, comm);
-      MPI_Allgather(loc_dist, loc_n, MPI_INT, glo_dist, loc_n, MPI_INT, comm);
-
+        //update global distance and pred info
+        MPI_Allgather(loc_pred, loc_n, MPI_INT, glo_pred, loc_n, MPI_INT, comm);
+        MPI_Allgather(loc_dist, loc_n, MPI_INT, glo_dist, loc_n, MPI_INT, comm);
   }
 
-  //Dijkstra(n, loc_n, loc_mat, loc_dist, loc_pred, my_rank, comm);
-  if(my_rank == 0){
-    Print_dists(glo_dist, n);
-    Print_paths(glo_pred, n);
-  }
+    //Dijkstra(n, loc_n, loc_mat, loc_dist, loc_pred, my_rank, comm);
+    
+    if (my_rank == 0) {
+        Print_dists(glo_dist, n);
+        Print_paths(glo_pred, n);
+    }
 
-  free(loc_mat);
-  free(loc_dist);
-  free(loc_pred);
-  free(loc_known);
-  free(glo_known);
-  free(glo_dist);
-  free(glo_pred);
-  MPI_Type_free(&blk_col_mpi_t);
+    free(loc_mat);
+    free(loc_dist);
+    free(loc_pred);
+    free(loc_known);
+    free(glo_known);
+    free(glo_dist);
+    free(glo_pred);
+    MPI_Type_free(&blk_col_mpi_t);
 
-  MPI_Finalize();
-  return 0;
+    MPI_Finalize();
+    return 0;
 }
 
 // Find the minimam number of loc_dist[] whose distance is unknown
@@ -160,6 +161,7 @@ void Find_min_dist(int *my_min, int loc_n, int *loc_dist, int *loc_known,
     my_min[0] = loc_min_dist;
     my_min[1] = my_rank*loc_n + loc_u;
 }
+
 
 /*---------------------------------------------------------------------
  * Function:  Read_n
@@ -316,14 +318,14 @@ void Print_matrix(int loc_mat[], int n, int loc_n,
  *                 is the length of the shortest path 0->v
  */
 void Print_dists(int dist[], int n) {
-   int v;
+    int v;
 
-   printf("  v    dist 0->v\n");
-   printf("----   ---------\n");
+    printf("  v    dist 0->v\n");
+    printf("----   ---------\n");
 
-   for (v = 1; v < n; v++)
-      printf("%3d       %4d\n", v, dist[v]);
-   printf("\n");
+    for (v = 1; v < n; v++)
+        printf("%3d       %4d\n", v, dist[v]);
+    printf("\n");
 } /* Print_dists */
 
 
@@ -335,25 +337,25 @@ void Print_dists(int dist[], int n) {
  *                 u precedes v on the shortest path 0->v
  */
 void Print_paths(int pred[], int n) {
-   int v, w, *path, count, i;
+    int v, w, *path, count, i;
 
-   path =  malloc(n*sizeof(int));
+    path =  malloc(n*sizeof(int));
 
-   printf("  v     Path 0->v\n");
-   printf("----    ---------\n");
-   for (v = 1; v < n; v++) {
-      printf("%3d:    ", v);
-      count = 0;
-      w = v;
-      while (w != 0) {
-         path[count] = w;
-         count++;
-         w = pred[w];
-      }
-      printf("0 ");
-      for (i = count-1; i >= 0; i--)
-         printf("%d ", path[i]);
-      printf("\n");
+    printf("  v     Path 0->v\n");
+    printf("----    ---------\n");
+    for (v = 1; v < n; v++) {
+        printf("%3d:    ", v);
+        count = 0;
+        w = v;
+        while (w != 0) {
+            path[count] = w;
+            count++;
+            w = pred[w];
+        }
+        printf("0 ");
+        for (i = count-1; i >= 0; i--)
+            printf("%d ", path[i]);
+        printf("\n");
    }
 
    free(path);
