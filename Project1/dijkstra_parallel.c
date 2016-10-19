@@ -44,11 +44,9 @@ void Print_paths(int pred[], int n);
 
 int main(int argc, char const *argv[])
 {
-    int *loc_mat, *loc_dist, *loc_pred, *loc_known;
+    int *loc_mat, *loc_dist, *loc_pred, *loc_known, *glo_known, *glo_dist, *glo_pred;
     int n, loc_n, p, my_rank, u, loc_new_dist, i, v;
     int my_min[2], glo_min[2];
-
-    int *glo_known, *glo_dist, *glo_pred;
 
     MPI_Comm comm;
     MPI_Datatype blk_col_mpi_t;
@@ -61,14 +59,15 @@ int main(int argc, char const *argv[])
     n = Read_n(my_rank, comm);
     loc_n = n / p;
 
+    //global variable
     glo_known = malloc(n * sizeof(int));
     glo_dist = malloc(n * sizeof(int));
     glo_pred = malloc(n * sizeof(int));
 
-    loc_mat = malloc(n * loc_n * sizeof(int));
-    loc_dist = malloc(loc_n * sizeof(int)); //we may need other dist except the allocated
-    loc_pred = malloc(loc_n * sizeof(int));
-    loc_known = malloc(loc_n * sizeof(int)); //local variable
+    loc_mat = malloc(n * loc_n * sizeof(int)); // part of the matrix
+    loc_dist = malloc(loc_n * sizeof(int)); //store part of the distance
+    loc_pred = malloc(loc_n * sizeof(int)); //store part of the pred info
+    loc_known = malloc(loc_n * sizeof(int)); //store part of the known info
 
     blk_col_mpi_t = Build_blk_col_type(n, loc_n);
     Read_matrix(loc_mat, n, loc_n, blk_col_mpi_t, my_rank, comm);
@@ -81,10 +80,12 @@ int main(int argc, char const *argv[])
     }
     //local initialization end
 
-    //gather information
+    //initialize the known[0] to be true(1)
     if(my_rank == 0) {
         loc_known[0] = 1;
     }
+
+    //update the globale known/pred/distance(gather and broadcast)
     MPI_Allgather(loc_known, loc_n, MPI_INT, glo_known, loc_n, MPI_INT, comm);
     MPI_Allgather(loc_pred, loc_n, MPI_INT, glo_pred, loc_n, MPI_INT, comm);
     MPI_Allgather(loc_dist, loc_n, MPI_INT, glo_dist, loc_n, MPI_INT, comm);
@@ -93,19 +94,18 @@ int main(int argc, char const *argv[])
     for(i = 1; i < n; i++){
         Find_min_dist(my_min, loc_n, loc_dist, loc_known, my_rank, comm);
 
+        //calculate the cheapest edge and the vertex
         MPI_Allreduce(my_min, glo_min, 1, MPI_2INT, MPI_MINLOC, comm);
+        //get the vertex to be added
         u = glo_min[1];
-
-        //if(my_rank == 0)
-            //printf("%d %d \n", u, glo_min[0]);
-        
+        //update glo_known
         glo_known[u] = 1;
-        
-        //for rank where u locate, update global known info
+
+        //for process where u locate, update local known info
         if(my_rank == u / loc_n) {
             loc_known[u%loc_n] = 1;
-        }
-        
+        }//no need to allgather, because we have update glo_known
+
         //update local distance and pred info
         for(v = 0; v < loc_n; v++) {
             if(loc_known[v] == 0) {
@@ -120,15 +120,14 @@ int main(int argc, char const *argv[])
         //update global distance and pred info
         MPI_Allgather(loc_pred, loc_n, MPI_INT, glo_pred, loc_n, MPI_INT, comm);
         MPI_Allgather(loc_dist, loc_n, MPI_INT, glo_dist, loc_n, MPI_INT, comm);
-  }
+    }
 
-    //Dijkstra(n, loc_n, loc_mat, loc_dist, loc_pred, my_rank, comm);
-    
+    //output info
     if (my_rank == 0) {
         Print_dists(glo_dist, n);
         Print_paths(glo_pred, n);
     }
-
+    //free space
     free(loc_mat);
     free(loc_dist);
     free(loc_pred);
