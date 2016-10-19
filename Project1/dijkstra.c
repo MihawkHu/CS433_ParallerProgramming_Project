@@ -33,37 +33,59 @@
 
 const int INFINITY = 1000000;
 
-void Read_matrix(int mat[], int n);
+void Read_matrix(int mat[], int n, FILE *fp);
 void Print_matrix(int mat[], int n);
-void Print_dists(int dist[], int n);
-void Print_paths(int pred[], int n);
+void Print_dists(int dist[], int n, FILE *fp);
+void Print_paths(int pred[], int n, FILE *fp);
 int  Find_min_dist(int dist[], int known[], int n);
 void Dijkstra(int mat[], int dist[], int pred[], int n);
 
-int main(void) {
+int main(int argc, char const *argv[]) {
+
    int  n;
    int *mat, *dist, *pred;
+   
+   // input file 
+   FILE *fpin;
+   char *ch = argv[1];
+   if (fpin = fopen(ch, "r")){
+    //    printf("Read file done\n");
+   }
+   else {
+       printf("Open input file failed\n");
+   }
+   
 
-   printf("How many vertices?\n");
-   scanf("%d", &n);
+   // printf("How many vertices?\n");
+   fscanf(fpin, "%d", &n);
    mat = malloc(n*n*sizeof(int));
    dist = malloc(n*sizeof(int));
    pred = malloc(n*sizeof(int));
 
-   printf("Enter the matrix\n");
-   Read_matrix(mat, n);
+   // printf("Enter the matrix\n");
+   Read_matrix(mat, n, fpin);
 
    Dijkstra(mat, dist, pred, n);
 
-   printf("The distance from 0 to each vertex is:\n");
-   Print_dists(dist, n);
-   printf("The shortest path from 0 to each vertex is:\n");
-   Print_paths(pred, n);
-
+   // printf("The distance from 0 to each vertex is:\n");
+   // printf("The shortest path from 0 to each vertex is:\n");
+   
+   FILE *fpout;
+   ch = argv[2];
+   if (fpout = fopen(ch, "w")) {
+       Print_dists(dist, n, fpout);
+       Print_paths(pred, n, fpout);
+   }
+   else {
+       printf("Output file failed.\n");
+   }
+   
    free(mat);
    free(dist);
    free(pred);
-
+   fclose(fpin);
+   fclose(fpout);
+   
    return 0;
 }  /* main */
 
@@ -73,12 +95,12 @@ int main(void) {
  * In arg:    n
  * Out arg:   mat
  */
-void Read_matrix(int mat[], int n) {
+void Read_matrix(int mat[], int n, FILE *fp) {
    int i, j;
 
    for (i = 0; i < n; i++)
       for (j = 0; j < n; j++)
-         scanf("%d", &mat[i*n+j]);
+         fscanf(fp, "%d", &mat[i*n+j]);
 }  /* Read_matrix */
 
 /*-------------------------------------------------------------------
@@ -189,15 +211,15 @@ int Find_min_dist(int dist[], int known[], int n) {
  *              dist:  distances from 0 to each vertex v:  dist[v]
  *                 is the length of the shortest path 0->v
  */
-void Print_dists(int dist[], int n) {
+void Print_dists(int dist[], int n, FILE *fp) {
    int v;
 
-   printf("  v    dist 0->v\n");
-   printf("----   ---------\n");
+   fprintf(fp, "  v    dist 0->v\n");
+   fprintf(fp, "----   ---------\n");
                   
    for (v = 1; v < n; v++)
-      printf("%3d       %4d\n", v, dist[v]);
-   printf("\n");
+      fprintf(fp, "%3d       %4d\n", v, dist[v]);
+   fprintf(fp, "\n");
 } /* Print_dists */  
 
 
@@ -208,15 +230,15 @@ void Print_dists(int dist[], int n) {
  *              pred:  list of predecessors:  pred[v] = u if
  *                 u precedes v on the shortest path 0->v
  */
-void Print_paths(int pred[], int n) {
+void Print_paths(int pred[], int n, FILE *fp) {
    int v, w, *path, count, i;
 
    path =  malloc(n*sizeof(int));
 
-   printf("  v     Path 0->v\n");
-   printf("----    ---------\n");
+   fprintf(fp, "  v     Path 0->v\n");
+   fprintf(fp, "----    ---------\n");
    for (v = 1; v < n; v++) {
-      printf("%3d:    ", v);
+      fprintf(fp, "%3d:    ", v);
       count = 0;
       w = v;
       while (w != 0) {
@@ -224,10 +246,10 @@ void Print_paths(int pred[], int n) {
          count++;
          w = pred[w];
       }
-      printf("0 ");
+      fprintf(fp, "0 ");
       for (i = count-1; i >= 0; i--)
-         printf("%d ", path[i]);
-      printf("\n");
+         fprintf(fp, "%d ", path[i]);
+      fprintf(fp, "\n");
    }
 
    free(path);

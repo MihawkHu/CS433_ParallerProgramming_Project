@@ -26,10 +26,10 @@ Date:   2016-10
 #define MAX_STRING 10000
 
 // input functions, they are copied from ./mpi_io.c
-int Read_n(int my_rank, MPI_Comm comm);
+int Read_n(int my_rank, MPI_Comm comm, FILE *fp);
 MPI_Datatype Build_blk_col_type(int n, int loc_n);
 void Read_matrix(int loc_mat[], int n, int loc_n,
-        MPI_Datatype blk_col_mpi_t, int my_rank, MPI_Comm comm);
+        MPI_Datatype blk_col_mpi_t, int my_rank, MPI_Comm comm, FILE *fp);
 void Print_local_matrix(int loc_mat[], int n, int loc_n, int my_rank);
 void Print_matrix(int loc_mat[], int n, int loc_n,
         MPI_Datatype blk_col_mpi_t, int my_rank, MPI_Comm comm);
@@ -38,16 +38,25 @@ void Find_min_dist(int* my_min,int loc_n, int *loc_dist, int *loc_known,
         int my_rank, MPI_Comm comm);
 
 // output functions
-void Print_dists(int dist[], int n);
-void Print_paths(int pred[], int n);
-
+void Print_dists(int dist[], int n, int option, FILE *fp);
+void Print_paths(int pred[], int n, int option, FILE *fp);
 
 int main(int argc, char const *argv[])
 {
     int *loc_mat, *loc_dist, *loc_pred, *loc_known, *glo_known, *glo_dist, *glo_pred;
     int n, loc_n, p, my_rank, u, loc_new_dist, i, v;
     int my_min[2], glo_min[2];
-
+    
+    // input file
+    FILE *fpin;
+    char *ch = argv[1];
+    if ((fpin = fopen(ch, "r")) == 0) {
+        printf("Open input file failed.\n");        
+    }
+    else {
+        printf("Read file done\n");
+    }
+    
     MPI_Comm comm;
     MPI_Datatype blk_col_mpi_t;
 
@@ -56,7 +65,7 @@ int main(int argc, char const *argv[])
     MPI_Comm_size(comm, &p);
     MPI_Comm_rank(comm, &my_rank);
 
-    n = Read_n(my_rank, comm);
+    n = Read_n(my_rank, comm, fpin);
     loc_n = n / p;
 
     //global variable
@@ -70,7 +79,7 @@ int main(int argc, char const *argv[])
     loc_known = malloc(loc_n * sizeof(int)); //store part of the known info
 
     blk_col_mpi_t = Build_blk_col_type(n, loc_n);
-    Read_matrix(loc_mat, n, loc_n, blk_col_mpi_t, my_rank, comm);
+    Read_matrix(loc_mat, n, loc_n, blk_col_mpi_t, my_rank, comm, fpin);
 
     //local initialization
     for(v = 0; v < loc_n; v++) {
@@ -124,8 +133,23 @@ int main(int argc, char const *argv[])
 
     //output info
     if (my_rank == 0) {
-        Print_dists(glo_dist, n);
-        Print_paths(glo_pred, n);
+        if (argc == 2) {
+            Print_dists(glo_dist, n, 0, NULL);
+            Print_paths(glo_pred, n, 0, NULL);
+        }
+        
+        else if (argc == 3) {
+            char *ch = argv[2];
+            FILE *fpout;
+            if (fpout = fopen(ch, "w")) {
+                Print_dists(glo_dist, n, 1, fpout);
+                Print_paths(glo_pred, n, 1, fpout);
+                fclose(fpout);
+            }
+            else {
+                printf("Open output file failed\n");
+            } 
+        }
     }
     //free space
     free(loc_mat);
@@ -136,6 +160,7 @@ int main(int argc, char const *argv[])
     free(glo_dist);
     free(glo_pred);
     MPI_Type_free(&blk_col_mpi_t);
+    fclose(fpin);
 
     MPI_Finalize();
     return 0;
@@ -161,6 +186,74 @@ void Find_min_dist(int *my_min, int loc_n, int *loc_dist, int *loc_known,
     my_min[1] = my_rank*loc_n + loc_u;
 }
 
+// print dist to console or file
+void Print_dists(int dist[], int n, int option, FILE *fp) {
+    int v;
+
+    printf("  v    dist 0->v\n");
+    printf("----   ---------\n");
+
+    for (v = 1; v < n; v++)
+        printf("%3d       %4d\n", v, dist[v]);
+    printf("\n");
+    
+    // print to file
+    if (option == 1) {
+        fprintf(fp, "  v    dist 0->v\n");
+        fprintf(fp, "----   ---------\n");
+
+        for (v = 1; v < n; v++)
+            fprintf(fp, "%3d       %4d\n", v, dist[v]);
+        fprintf(fp, "\n");
+    }
+}
+
+// print path to console or file
+void Print_paths(int pred[], int n, int option, FILE *fp) {
+    int v, w, *path, count, i;
+
+    path =  malloc(n*sizeof(int));
+
+    printf("  v     Path 0->v\n");
+    printf("----    ---------\n");
+    for (v = 1; v < n; v++) {
+        printf("%3d:    ", v);
+        count = 0;
+        w = v;
+        while (w != 0) {
+            path[count] = w;
+            count++;
+            w = pred[w];
+        }
+        printf("0 ");
+        for (i = count-1; i >= 0; i--)
+            printf("%d ", path[i]);
+        printf("\n");
+   }
+   
+   // print to file
+   if (option == 1) {
+       fprintf(fp, "  v     Path 0->v\n");
+       fprintf(fp, "----    ---------\n");
+       
+       for (v = 1; v < n; v++) {
+           fprintf(fp, "%3d:    ", v);
+           count = 0;
+           w = v;
+           while (w != 0) {
+               path[count] = w;
+               count++;
+               w = pred[w];
+           }
+           fprintf(fp, "0 ");
+           for (i = count-1; i >= 0; i--)
+               fprintf(fp, "%d ", path[i]);
+           fprintf(fp, "\n");
+      }
+   }
+   
+   free(path);
+}
 
 /*---------------------------------------------------------------------
  * Function:  Read_n
@@ -170,11 +263,11 @@ void Find_min_dist(int *my_min, int loc_n, int *loc_dist, int *loc_known,
  *            comm:  Communicator containing all calling processes
  * Ret val:   n:  the number of rows in the matrix
  */
-int Read_n(int my_rank, MPI_Comm comm) {
+int Read_n(int my_rank, MPI_Comm comm, FILE *fpin) {
     int n;
 
     if (my_rank == 0)
-        scanf("%d", &n);
+        fscanf(fpin, "%d", &n);
     MPI_Bcast(&n, 1, MPI_INT, 0, comm);
     return n;
 }  /* Read_n */
@@ -224,14 +317,14 @@ MPI_Datatype Build_blk_col_type(int n, int loc_n) {
  *               allocated by the caller)
  */
 void Read_matrix(int loc_mat[], int n, int loc_n,
-        MPI_Datatype blk_col_mpi_t, int my_rank, MPI_Comm comm) {
+        MPI_Datatype blk_col_mpi_t, int my_rank, MPI_Comm comm, FILE *fp) {
     int* mat = NULL, i, j;
 
     if (my_rank == 0) {
         mat = malloc(n*n*sizeof(int));
         for (i = 0; i < n; i++)
             for (j = 0; j < n; j++)
-                scanf("%d", &mat[i*n + j]);
+                fscanf(fp, "%d", &mat[i*n + j]);
     }
 
     MPI_Scatter(mat, 1, blk_col_mpi_t,
@@ -306,56 +399,3 @@ void Print_matrix(int loc_mat[], int n, int loc_n,
         free(mat);
     }
 }  /* Print_matrix */
-
-
-/*-------------------------------------------------------------------
- * Function:    Print_dists
- * Purpose:     Print the length of the shortest path from 0 to each
- *              vertex
- * In args:     n:  the number of vertices
- *              dist:  distances from 0 to each vertex v:  dist[v]
- *                 is the length of the shortest path 0->v
- */
-void Print_dists(int dist[], int n) {
-    int v;
-
-    printf("  v    dist 0->v\n");
-    printf("----   ---------\n");
-
-    for (v = 1; v < n; v++)
-        printf("%3d       %4d\n", v, dist[v]);
-    printf("\n");
-} /* Print_dists */
-
-
-/*-------------------------------------------------------------------
- * Function:    Print_paths
- * Purpose:     Print the shortest path from 0 to each vertex
- * In args:     n:  the number of vertices
- *              pred:  list of predecessors:  pred[v] = u if
- *                 u precedes v on the shortest path 0->v
- */
-void Print_paths(int pred[], int n) {
-    int v, w, *path, count, i;
-
-    path =  malloc(n*sizeof(int));
-
-    printf("  v     Path 0->v\n");
-    printf("----    ---------\n");
-    for (v = 1; v < n; v++) {
-        printf("%3d:    ", v);
-        count = 0;
-        w = v;
-        while (w != 0) {
-            path[count] = w;
-            count++;
-            w = pred[w];
-        }
-        printf("0 ");
-        for (i = count-1; i >= 0; i--)
-            printf("%d ", path[i]);
-        printf("\n");
-   }
-
-   free(path);
-}  /* Print_paths */
