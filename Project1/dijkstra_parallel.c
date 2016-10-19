@@ -9,7 +9,7 @@ Input:  n, the number of vertices in the digraph
 Output: The submatrix assigned to each process and the complete matrix printed
         from process 0.  Both print "i" instead of 1000000 for infinity.
 
-Compile:mpicc -g -Wall -o dijkstra_paraller dijkstra_paraller.c
+Compile:mpicc -g -Wall -o dijkstra_parallel dijkstra_parallel.c
 Run:    mpiexec -n <p> ./dijkstra_parallel (on lab machines)
         csmpiexec -n <p> ./dijkstra_parallel (on the penguin cluster)
 
@@ -19,6 +19,7 @@ Date:   2016-10
 #include <stdlib.h>
 #include <string.h>
 #include <mpi.h>
+#include <time.h>
 
 // #define DEBUG
 
@@ -51,10 +52,10 @@ int main(int argc, char const *argv[])
     FILE *fpin;
     char *ch = argv[1];
     if ((fpin = fopen(ch, "r")) == 0) {
-        printf("Open input file failed.\n");        
+        printf("Open input file failed. %d\n", my_rank);        
     }
     else {
-        printf("Read file done\n");
+        // printf("Read file done\n");
     }
     
     MPI_Comm comm;
@@ -76,12 +77,14 @@ int main(int argc, char const *argv[])
     loc_mat = malloc(n * loc_n * sizeof(int)); // part of the matrix
     loc_dist = malloc(loc_n * sizeof(int)); //store part of the distance
     loc_pred = malloc(loc_n * sizeof(int)); //store part of the pred info
-    loc_known = malloc(loc_n * sizeof(int)); //store part of the known info
 
     blk_col_mpi_t = Build_blk_col_type(n, loc_n);
     Read_matrix(loc_mat, n, loc_n, blk_col_mpi_t, my_rank, comm, fpin);
-
+    
+    clock_t t1 = clock();
+    
     //local initialization
+    loc_known = malloc(loc_n * sizeof(int)); //store part of the known info
     for(v = 0; v < loc_n; v++) {
         loc_pred[v] = 0;
         loc_known[v] = 0;
@@ -130,9 +133,12 @@ int main(int argc, char const *argv[])
         MPI_Allgather(loc_pred, loc_n, MPI_INT, glo_pred, loc_n, MPI_INT, comm);
         MPI_Allgather(loc_dist, loc_n, MPI_INT, glo_dist, loc_n, MPI_INT, comm);
     }
-
+    
     //output info
     if (my_rank == 0) {
+        clock_t t2 = clock();
+        printf("Paraller time used: %f s\n", (double)(t2-t1)/CLOCKS_PER_SEC);
+        
         if (argc == 2) {
             Print_dists(glo_dist, n, 0, NULL);
             Print_paths(glo_pred, n, 0, NULL);
@@ -189,13 +195,16 @@ void Find_min_dist(int *my_min, int loc_n, int *loc_dist, int *loc_known,
 // print dist to console or file
 void Print_dists(int dist[], int n, int option, FILE *fp) {
     int v;
-
-    printf("  v    dist 0->v\n");
-    printf("----   ---------\n");
-
-    for (v = 1; v < n; v++)
+    
+    // print to console
+    if (option == 0) {
+        printf("  v    dist 0->v\n");
+        printf("----   ---------\n");
+        
+        for (v = 1; v < n; v++)
         printf("%3d       %4d\n", v, dist[v]);
-    printf("\n");
+        printf("\n");
+    }
     
     // print to file
     if (option == 1) {
@@ -213,23 +222,26 @@ void Print_paths(int pred[], int n, int option, FILE *fp) {
     int v, w, *path, count, i;
 
     path =  malloc(n*sizeof(int));
-
-    printf("  v     Path 0->v\n");
-    printf("----    ---------\n");
-    for (v = 1; v < n; v++) {
-        printf("%3d:    ", v);
-        count = 0;
-        w = v;
-        while (w != 0) {
-            path[count] = w;
-            count++;
-            w = pred[w];
-        }
-        printf("0 ");
-        for (i = count-1; i >= 0; i--)
+    
+    // print to console
+    if (option == 0) {
+        printf("  v     Path 0->v\n");
+        printf("----    ---------\n");
+        for (v = 1; v < n; v++) {
+            printf("%3d:    ", v);
+            count = 0;
+            w = v;
+            while (w != 0) {
+                path[count] = w;
+                count++;
+                w = pred[w];
+            }
+            printf("0 ");
+            for (i = count-1; i >= 0; i--)
             printf("%d ", path[i]);
-        printf("\n");
-   }
+            printf("\n");
+        }
+    }
    
    // print to file
    if (option == 1) {

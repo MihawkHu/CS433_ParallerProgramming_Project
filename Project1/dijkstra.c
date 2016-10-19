@@ -30,6 +30,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 const int INFINITY = 1000000;
 
@@ -64,8 +65,13 @@ int main(int argc, char const *argv[]) {
 
    // printf("Enter the matrix\n");
    Read_matrix(mat, n, fpin);
-
+   
+   clock_t t1 = clock();
+   
    Dijkstra(mat, dist, pred, n);
+   
+   clock_t t2 = clock();
+   printf("Serial time used: %f s\n", (double)(t2-t1)/CLOCKS_PER_SEC);
 
    // printf("The distance from 0 to each vertex is:\n");
    // printf("The shortest path from 0 to each vertex is:\n");
