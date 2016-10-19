@@ -1,0 +1,157 @@
+==================================
+Process number: 2
+--------------------------------
+Test data  0   Size:  10
+Paraller time used: 0.000032 s
+Serial time used: 0.000002 s
+--------------------------------
+Test data  1   Size:  100
+Paraller time used: 0.000245 s
+Serial time used: 0.000109 s
+--------------------------------
+Test data  2   Size:  300
+Paraller time used: 0.000746 s
+Serial time used: 0.000944 s
+--------------------------------
+Test data  3   Size:  400
+Paraller time used: 0.001101 s
+Serial time used: 0.001902 s
+--------------------------------
+Test data  4   Size:  500
+Paraller time used: 0.001579 s
+Serial time used: 0.002012 s
+--------------------------------
+Test data  5   Size:  800
+Paraller time used: 0.002927 s
+Serial time used: 0.005354 s
+--------------------------------
+Test data  6   Size:  1000
+Paraller time used: 0.004588 s
+Serial time used: 0.008938 s
+--------------------------------
+Test data  7   Size:  2000
+Paraller time used: 0.018461 s
+Serial time used: 0.037647 s
+--------------------------------
+Test data  8   Size:  3000
+Paraller time used: 0.041107 s
+Serial time used: 0.087909 s
+--------------------------------
+Test data  9   Size:  4000
+Paraller time used: 0.074495 s
+Serial time used: 0.142097 s
+--------------------------------
+Test data  10   Size:  5000
+Paraller time used: 0.100481 s
+Serial time used: 0.219371 s
+
+==================================
+Process number: 5
+--------------------------------
+Test data  0   Size:  10
+Paraller time used: 0.000028 s
+Serial time used: 0.000003 s
+--------------------------------
+Test data  1   Size:  100
+Paraller time used: 0.000190 s
+Serial time used: 0.000089 s
+--------------------------------
+Test data  2   Size:  300
+Paraller time used: 0.000830 s
+Serial time used: 0.000692 s
+--------------------------------
+Test data  3   Size:  400
+Paraller time used: 0.001013 s
+Serial time used: 0.001646 s
+--------------------------------
+Test data  4   Size:  500
+Paraller time used: 0.001610 s
+Serial time used: 0.001862 s
+--------------------------------
+Test data  5   Size:  800
+Paraller time used: 0.002912 s
+Serial time used: 0.005094 s
+--------------------------------
+Test data  6   Size:  1000
+Paraller time used: 0.004359 s
+Serial time used: 0.007980 s
+--------------------------------
+Test data  7   Size:  2000
+Paraller time used: 0.016590 s
+Serial time used: 0.033604 s
+--------------------------------
+Test data  8   Size:  3000
+Paraller time used: 0.034609 s
+Serial time used: 0.074535 s
+--------------------------------
+Test data  9   Size:  4000
+Paraller time used: 0.065540 s
+Serial time used: 0.136445 s
+--------------------------------
+Test data  10   Size:  5000
+Paraller time used: 0.101422 s
+Serial time used: 0.223791 s
+
+==================================
+Process number: 10
+--------------------------------
+Test data  0   Size:  10
+Paraller time used: 0.000030 s
+Serial time used: 0.000003 s
+--------------------------------
+Test data  1   Size:  100
+Paraller time used: 0.000230 s
+Serial time used: 0.000083 s
+--------------------------------
+Test data  2   Size:  300
+Paraller time used: 0.001067 s
+Serial time used: 0.000691 s
+--------------------------------
+Test data  3   Size:  400
+Paraller time used: 0.001025 s
+Serial time used: 0.001339 s
+--------------------------------
+Test data  4   Size:  500
+Paraller time used: 0.001504 s
+Serial time used: 0.001856 s
+--------------------------------
+Test data  5   Size:  800
+Paraller time used: 0.002935 s
+Serial time used: 0.004999 s
+--------------------------------
+Test data  6   Size:  1000
+Paraller time used: 0.004339 s
+Serial time used: 0.007877 s
+--------------------------------
+Test data  7   Size:  2000
+Paraller time used: 0.016291 s
+Serial time used: 0.033037 s
+--------------------------------
+Test data  8   Size:  3000
+Paraller time used: 0.034917 s
+Serial time used: 0.074808 s
+--------------------------------
+Test data  9   Size:  4000
+Paraller time used: 0.066399 s
+Serial time used: 0.136957 s
+--------------------------------
+Test data  10   Size:  5000
+Paraller time used: 0.101860 s
+Serial time used: 0.222350 s
+
+
+=====================================
+Check begin
+Correct!
+Correct!
+Correct!
+Correct!
+Correct!
+Correct!
+Correct!
+Correct!
+Correct!
+Correct!
+Correct!
+Check done
+
