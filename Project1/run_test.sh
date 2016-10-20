@@ -1,5 +1,4 @@
 #!/bin/bash
-# path="../get_Captcha/captcha/captcha"
 rm dijkstra dijkstra_parallel
 mpicc -g -Wall -o dijkstra_parallel ./dijkstra_parallel.c
 gcc -g -Wall -o dijkstra ./dijkstra.c
