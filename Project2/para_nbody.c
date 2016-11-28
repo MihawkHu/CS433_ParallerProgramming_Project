@@ -13,6 +13,10 @@
 #include <X11/Xlib.h>
 #include <unistd.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #define WIDTH 1024
 #define HEIGHT 768
 
