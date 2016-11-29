@@ -1,0 +1,8 @@
+Universe has 1000 bodies.
+Nbody Position Calculation Time = :4.480000 s
+Universe has 2000 bodies.
+Nbody Position Calculation Time = :16.570000 s
+Universe has 5000 bodies.
+Nbody Position Calculation Time = :102.750000 s
+
+iteration times = 200
