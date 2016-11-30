@@ -13,6 +13,10 @@
 #include <X11/Xlib.h>
 #include <unistd.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #define WIDTH 1024
 #define HEIGHT 768
 
@@ -48,8 +52,6 @@ struct world {
 };
 
 clock_t total_time = 0;
-clock_t clc1 = 0;
-clock_t clc2 = 0;
 //total_time.sec = 0;
 //total_time.usec = 0;
 
@@ -154,7 +156,7 @@ void collision_step(struct world *world) {
     }
 }
 
-void position_step(struct world *world, double time_res) {
+void position_step(struct world *world, int thread_count, double time_res) {
     int i, j;
     double d, d_cubed, diff_x, diff_y;
 
@@ -163,20 +165,24 @@ void position_step(struct world *world, double time_res) {
      *     F on body i in the x dir = F_x[i]
      *     F on body i in the y dir = F_y[i] */
     double *force_x = (double*)malloc(sizeof(double) * world->num_bodies);
-	double *force_y = (double*)malloc(sizeof(double) * world->num_bodies);
+    double *force_y = (double*)malloc(sizeof(double) * world->num_bodies);
+    double *local_force_x = (double*)malloc(sizeof(double) * world->num_bodies * thread_count);
+	double *local_force_y = (double*)malloc(sizeof(double) * world->num_bodies * thread_count);
     // initialize all forces to zero
     force_x = memset(force_x, 0, sizeof(double) * world->num_bodies);
-	force_y = memset(force_y, 0, sizeof(double) * world->num_bodies);
-    struct tms ttt;
-    clock_t start = times(&ttt);
-	
+    force_y = memset(force_y, 0, sizeof(double) * world->num_bodies);
+    local_force_x = memset(local_force_x, 0, sizeof(double) * world->num_bodies * thread_count);
+	local_force_y = memset(local_force_y, 0, sizeof(double) * world->num_bodies * thread_count);
     
+    
+#   pragma omp for schedule(runtime)        
     /* Compute the net force on each body */
     for (i = 0; i < world->num_bodies; i++) {
-        for (j = 0; j < world->num_bodies; j++) {
-            if (i == j) {
-                continue;
-            }
+        for (j = 0; j < i; j++) {
+            int my_rank = omp_get_thread_num();
+            // if (i == j) {
+                // continue;
+            // }
             // Compute the x and y distances and total distance d between
             // bodies i and j
             diff_x = world->bodies[j].x - world->bodies[i].x;
@@ -188,18 +194,30 @@ void position_step(struct world *world, double time_res) {
             }
             d_cubed = d * d * d;
             // Add force due to j to total force on i
-            force_x[i] += GRAV * (world->bodies[i].m * world->bodies[j].m
+            double t1 = GRAV * (world->bodies[i].m * world->bodies[j].m
                     / d_cubed) * diff_x;
-            force_y[i] += GRAV * (world->bodies[i].m * world->bodies[j].m
+            double t2 = GRAV * (world->bodies[i].m * world->bodies[j].m
                     / d_cubed) * diff_y;
+                    
+            local_force_x[my_rank*world->num_bodies+i] += t1;
+            local_force_y[my_rank*world->num_bodies+i] += t2;
+            local_force_x[my_rank*world->num_bodies+j] -= t1;
+            local_force_y[my_rank*world->num_bodies+j] -= t2;
+            
         }
     }
-    clock_t end = times(&ttt);
-	clc1 += end - start;
     
+#   pragma omp for schedule(runtime)        
+    for (i = 0; i < world->num_bodies; ++i) {
+        for (j = 0; j < thread_count; ++j) {
+            force_x[i] += local_force_x[j*world->num_bodies+i];
+            force_y[i] += local_force_y[j*world->num_bodies+i];
+        }
+    }
+    
+    
+#   pragma omp for // schedule(static, world->num_bodies / thread_count)        
     // Update the velocity and position of each body
-    start = times(&ttt);
-	
     for (i = 0; i < world->num_bodies; i++) {
         // Update velocities
         world->bodies[i].vx += force_x[i] * time_res / world->bodies[i].m;
@@ -209,18 +227,17 @@ void position_step(struct world *world, double time_res) {
         world->bodies[i].x += world->bodies[i].vx * time_res;
         world->bodies[i].y += world->bodies[i].vy * time_res;
     }	
-    
-    end = times(&ttt);
-	clc1 += end - start;
 }
 
-void step_world(struct world *world, double time_res) {
+void step_world(struct world *world, int thread_count, double time_res) {
 	
 	struct tms ttt;
 	clock_t start, end;
 	start = times(&ttt);
-    position_step(world, time_res);
-	end = times(&ttt);
+#   pragma omp parallel num_threads(thread_count)
+    position_step(world, thread_count, time_res);
+	
+    end = times(&ttt);
 	total_time += end - start;
 
     collision_step(world);
@@ -233,9 +250,13 @@ int main(int argc, char **argv) {
 	//total_time.tv_usec = 0;
     /* get num bodies from the command line */
     int num_bodies;
-    num_bodies = (argc == 2) ? atoi(argv[1]) : DEF_NUM_BODIES;
+    int thread_count;
+    num_bodies = atoi(argv[1]);
+    thread_count = atoi(argv[2]);
+    // num_bodies = (argc == 3) ? atoi(argv[1]) : DEF_NUM_BODIES;
     printf("Universe has %d bodies.\n", num_bodies);
-
+    
+    
     /* set up the universe */
     time_t cur_time;
     time(&cur_time);
@@ -292,7 +313,7 @@ int main(int argc, char **argv) {
         XCopyArea(disp, back_buf, win, gc, 0, 0, WIDTH, HEIGHT, 0, 0);
 #endif
 
-        step_world(world, delta_t);
+        step_world(world, thread_count, delta_t);
 
 		//if you want to watch the process in 60 FPS
 		//nanosleep(&delay, &remaining);
@@ -300,9 +321,7 @@ int main(int argc, char **argv) {
 
 //	printf("Total Time = %f\n", (double)total_time.tv_sec + (double)total_time.tv_usec/1000000);
 	printf("Nbody Position Calculation Time = :%lf s\n",(double)total_time / (sysconf(_SC_CLK_TCK)));
-    
-    printf("clc1: %lf\n", (double)clc1 / (sysconf(_SC_CLK_TCK)));
-    printf("clc2: %lf\n", (double)clc2 / (sysconf(_SC_CLK_TCK)));
+
 #if NOT_RUN_ON_PI	
     XFreeGC(disp, gc);
     XFreePixmap(disp, back_buf);
