@@ -62,7 +62,6 @@ struct node{
     int *sons;
 	struct node *Son[4];
 };
-int flag = 1;
 double ALPHA = 0.000001;
 clock_t total_time = 0;
 //total_time.sec = 0;
