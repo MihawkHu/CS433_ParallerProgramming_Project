@@ -221,8 +221,12 @@ void BHT_complete(struct world *world,struct node *tempNode) {
 int isContainedBy(int x, int *arr, int length) {
     int i;
     for (i = 0; i < length; i++) {
+		if(arr[i] < x )
+			continue;
         if(arr[i] == x)
             return 1;
+		if(arr[i] > x)
+			return 0;
     }
     return 0;
 }
