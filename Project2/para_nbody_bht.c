@@ -62,7 +62,7 @@ struct node{
     int *sons;
 	struct node *Son[4];
 };
-double ALPHA = 0.0000;
+double ALPHA = 0.0001;
 clock_t total_time = 0;
 //total_time.sec = 0;
 //total_time.usec = 0;
@@ -221,12 +221,12 @@ void BHT_complete(struct world *world,struct node *tempNode) {
 int isContainedBy(int x, int *arr, int length) {
     int i;
     for (i = 0; i < length; i++) {
-		//if(arr[i] < x )
-		//	continue;
+		if(arr[i] < x )
+			continue;
         if(arr[i] == x)
             return 1;
-		//if(arr[i] > x)
-		//	return 0;
+		if(arr[i] > x)
+			return 0;
     }
     return 0;
 }
@@ -238,7 +238,6 @@ void BHT_Force_node(int num, struct world *world, struct node *Root, double *for
     struct node *tmp;
     while(isEmpty(&myQueue) != 0) {
         tmp = pop(&myQueue);
-
         if(isContainedBy(num, tmp->sons, tmp->sons_num) == 1) {
             for(i = 0; i < 4 ; i++) {
                 if(tmp->Son[i] != NULL)
@@ -264,10 +263,9 @@ void BHT_Force_node(int num, struct world *world, struct node *Root, double *for
         diff_x = tmp->mass_x - world->bodies[num].x;
         diff_y = tmp->mass_y - world->bodies[num].y;
         distance = sqrt(diff_x*diff_x + diff_y*diff_y);
-
+        if(distance < 25) distance = 25;
+        d_cubed = distance*distance*distance;
         if((WIDTH / (tmp->level + 1)) / distance  < ALPHA) {
-            if(distance < 25) distance = 25;
-            d_cubed = distance*distance*distance;
             force_x[num] += GRAV * (world->bodies[num].m * tmp->totalMass
                    / d_cubed) * diff_x;
             force_y[num] += GRAV * (world->bodies[num].m * tmp->totalMass
@@ -287,8 +285,8 @@ void BHT_Force(struct world *world, struct node *Root, double *force_x, double *
     int i;
     struct queue *myQueue;
     queueInit(&myQueue);
-//#	pragma omp parallel num_threads(4)
-//#   pragma omp parallel for
+
+//#   pragma omp for
     for(i = 0; i < world->num_bodies; i++) {
         push(&myQueue, &Root);
         BHT_Force_node(i, world, Root, force_x, force_y, myQueue);
@@ -321,49 +319,49 @@ void position_step_para(struct world *world, double time_res) {
     force_x = memset(force_x, 0, sizeof(double) * world->num_bodies);
     force_y = memset(force_y, 0, sizeof(double) * world->num_bodies);
 
-    double *force_xx = (double*)malloc(sizeof(double) * world->num_bodies);
-	double *force_yy = (double*)malloc(sizeof(double) * world->num_bodies);
-    // initialize all forces to zero
-    force_xx = memset(force_xx, 0, sizeof(double) * world->num_bodies);
-	force_yy = memset(force_yy, 0, sizeof(double) * world->num_bodies);
+    // double *force_xx = (double*)malloc(sizeof(double) * world->num_bodies);
+	// double *force_yy = (double*)malloc(sizeof(double) * world->num_bodies);
+    // // initialize all forces to zero
+    // force_xx = memset(force_xx, 0, sizeof(double) * world->num_bodies);
+	// force_yy = memset(force_yy, 0, sizeof(double) * world->num_bodies);
 
      struct node *myBHT;
      myBHT = malloc(sizeof(struct node));
      BHT_construct_root(1024, 768, world, myBHT);
      BHT_construct(world, myBHT);
      BHT_complete(world, myBHT);
-
+//#	pragma omp parallel num_threads(4)
      BHT_Force(world, myBHT, force_x, force_y);
      BHT_deconstruct(myBHT);
 
 
-     for (i = 0; i < world->num_bodies; i++) {
-         for (j = 0; j < world->num_bodies; j++) {
-             if (i == j) {
-                 continue;
-             }
-             // Compute the x and y distances and total distance d between
-             // bodies i and j
-             diff_x = world->bodies[j].x - world->bodies[i].x;
-             diff_y = world->bodies[j].y - world->bodies[i].y;
-             d = sqrt((diff_x * diff_x) + (diff_y * diff_y));
+    //  for (i = 0; i < world->num_bodies; i++) {
+    //      for (j = 0; j < world->num_bodies; j++) {
+    //          if (i == j) {
+    //              continue;
+    //          }
+    //          // Compute the x and y distances and total distance d between
+    //          // bodies i and j
+    //          diff_x = world->bodies[j].x - world->bodies[i].x;
+    //          diff_y = world->bodies[j].y - world->bodies[i].y;
+    //          d = sqrt((diff_x * diff_x) + (diff_y * diff_y));
+     //
+    //          if (d < 25) {
+    //              d = 25;
+    //          }
+    //          d_cubed = d * d * d;
+    //          // Add force due to j to total force on i
+    //          force_xx[i] += GRAV * (world->bodies[i].m * world->bodies[j].m
+    //                  / d_cubed) * diff_x;
+    //          force_yy[i] += GRAV * (world->bodies[i].m * world->bodies[j].m
+    //                  / d_cubed) * diff_y;
+    //      }
+    //  }
 
-             if (d < 25) {
-                 d = 25;
-             }
-             d_cubed = d * d * d;
-             // Add force due to j to total force on i
-             force_xx[i] += GRAV * (world->bodies[i].m * world->bodies[j].m
-                     / d_cubed) * diff_x;
-             force_yy[i] += GRAV * (world->bodies[i].m * world->bodies[j].m
-                     / d_cubed) * diff_y;
-         }
-     }
-
-
-          for(i = 0; i < world->num_bodies; i++){
-     		printf("%f %f\n", force_x[i], force_xx[i]);
-     	 }
+         //
+        //   for(i = 0; i < world->num_bodies; i++){
+     // 		printf("%f %f\n", force_x[i], force_xx[i]);
+     // 	 }
 
      for (i = 0; i < world->num_bodies; i++) {
          // Update velocities
