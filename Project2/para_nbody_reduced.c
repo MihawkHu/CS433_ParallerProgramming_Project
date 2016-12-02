@@ -1,4 +1,4 @@
-// basic algorithm
+// reduced algorithm with improvement
 
 // Compile with:
 //     
@@ -167,18 +167,24 @@ void position_step(struct world *world, int thread_count, double time_res) {
      *     F on body i in the x dir = F_x[i]
      *     F on body i in the y dir = F_y[i] */
     double *force_x = (double*)malloc(sizeof(double) * world->num_bodies);
-	double *force_y = (double*)malloc(sizeof(double) * world->num_bodies);
+    double *force_y = (double*)malloc(sizeof(double) * world->num_bodies);
+    double *local_force_x = (double*)malloc(sizeof(double) * world->num_bodies * thread_count);
+	double *local_force_y = (double*)malloc(sizeof(double) * world->num_bodies * thread_count);
     // initialize all forces to zero
     force_x = memset(force_x, 0, sizeof(double) * world->num_bodies);
-	force_y = memset(force_y, 0, sizeof(double) * world->num_bodies);
-
+    force_y = memset(force_y, 0, sizeof(double) * world->num_bodies);
+    local_force_x = memset(local_force_x, 0, sizeof(double) * world->num_bodies * thread_count);
+	local_force_y = memset(local_force_y, 0, sizeof(double) * world->num_bodies * thread_count);
+    
+    
+#   pragma omp for       
     /* Compute the net force on each body */
-#   pragma omp for schedule(static, 1)        
     for (i = 0; i < world->num_bodies; i++) {
-        for (j = 0; j < world->num_bodies; j++) {
-            if (i == j) {
-                continue;
-            }
+        for (j = 0; j < i; j++) {
+            int my_rank = omp_get_thread_num();
+            // if (i == j) {
+                // continue;
+            // }
             // Compute the x and y distances and total distance d between
             // bodies i and j
             diff_x = world->bodies[j].x - world->bodies[i].x;
@@ -190,14 +196,29 @@ void position_step(struct world *world, int thread_count, double time_res) {
             }
             d_cubed = d * d * d;
             // Add force due to j to total force on i
-            force_x[i] += GRAV * (world->bodies[i].m * world->bodies[j].m
+            double t1 = GRAV * (world->bodies[i].m * world->bodies[j].m
                     / d_cubed) * diff_x;
-            force_y[i] += GRAV * (world->bodies[i].m * world->bodies[j].m
+            double t2 = GRAV * (world->bodies[i].m * world->bodies[j].m
                     / d_cubed) * diff_y;
+                    
+            local_force_x[my_rank*world->num_bodies+i] += t1;
+            local_force_y[my_rank*world->num_bodies+i] += t2;
+            local_force_x[my_rank*world->num_bodies+j] -= t1;
+            local_force_y[my_rank*world->num_bodies+j] -= t2;
+            
         }
     }
     
-#   pragma omp for //schedule(static, world->num_bodies / thread_count)        
+#   pragma omp for         
+    for (i = 0; i < world->num_bodies; ++i) {
+        for (j = 0; j < thread_count; ++j) {
+            force_x[i] += local_force_x[j*world->num_bodies+i];
+            force_y[i] += local_force_y[j*world->num_bodies+i];
+        }
+    }
+    
+    
+#   pragma omp for // schedule(static, world->num_bodies / thread_count)        
     // Update the velocity and position of each body
     for (i = 0; i < world->num_bodies; i++) {
         // Update velocities
@@ -215,7 +236,6 @@ void step_world(struct world *world, int thread_count, double time_res) {
 	struct tms ttt;
 	clock_t start, end;
 	start = times(&ttt);
-    
 #   pragma omp parallel num_threads(thread_count)
     position_step(world, thread_count, time_res);
 	
