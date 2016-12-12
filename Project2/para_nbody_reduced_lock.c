@@ -1,3 +1,6 @@
+// reduced algorithm with lock and critical section
+// critical section is in comment
+
 // Compile with:
 //     
 //
@@ -54,6 +57,18 @@ struct world {
 clock_t total_time = 0;
 //total_time.sec = 0;
 //total_time.usec = 0;
+
+void Init_locks(omp_lock_t locks[], int n) {
+   int i;
+   for (i = 0; i < n; i++) 
+      omp_init_lock(&locks[i]);
+}  /* Init_locks */
+
+void Destroy_locks(omp_lock_t locks[], int n) {
+   int i;
+   for (i = 0; i < n; i++) 
+      omp_destroy_lock(&locks[i]);
+}  /* Destroy_locks */
 
 
 /* This function initializes each particle's mass, velocity and position */
@@ -156,7 +171,7 @@ void collision_step(struct world *world) {
     }
 }
 
-void position_step(struct world *world, int thread_count, double time_res) {
+void position_step(struct world *world, int thread_count, double time_res, omp_lock_t locks[]) {
     int i, j;
     double d, d_cubed, diff_x, diff_y;
 
@@ -165,24 +180,17 @@ void position_step(struct world *world, int thread_count, double time_res) {
      *     F on body i in the x dir = F_x[i]
      *     F on body i in the y dir = F_y[i] */
     double *force_x = (double*)malloc(sizeof(double) * world->num_bodies);
-    double *force_y = (double*)malloc(sizeof(double) * world->num_bodies);
-    double *local_force_x = (double*)malloc(sizeof(double) * world->num_bodies * thread_count);
-	double *local_force_y = (double*)malloc(sizeof(double) * world->num_bodies * thread_count);
+	double *force_y = (double*)malloc(sizeof(double) * world->num_bodies);
     // initialize all forces to zero
     force_x = memset(force_x, 0, sizeof(double) * world->num_bodies);
-    force_y = memset(force_y, 0, sizeof(double) * world->num_bodies);
-    local_force_x = memset(local_force_x, 0, sizeof(double) * world->num_bodies * thread_count);
-	local_force_y = memset(local_force_y, 0, sizeof(double) * world->num_bodies * thread_count);
-    
-    
-#   pragma omp for schedule(runtime)        
+	force_y = memset(force_y, 0, sizeof(double) * world->num_bodies);
+#   pragma omp for schedule(static,1)
     /* Compute the net force on each body */
     for (i = 0; i < world->num_bodies; i++) {
         for (j = 0; j < i; j++) {
-            int my_rank = omp_get_thread_num();
-            // if (i == j) {
-                // continue;
-            // }
+            if (i == j) {
+                continue;
+            }
             // Compute the x and y distances and total distance d between
             // bodies i and j
             diff_x = world->bodies[j].x - world->bodies[i].x;
@@ -194,29 +202,33 @@ void position_step(struct world *world, int thread_count, double time_res) {
             }
             d_cubed = d * d * d;
             // Add force due to j to total force on i
+            
             double t1 = GRAV * (world->bodies[i].m * world->bodies[j].m
                     / d_cubed) * diff_x;
             double t2 = GRAV * (world->bodies[i].m * world->bodies[j].m
                     / d_cubed) * diff_y;
                     
-            local_force_x[my_rank*world->num_bodies+i] += t1;
-            local_force_y[my_rank*world->num_bodies+i] += t2;
-            local_force_x[my_rank*world->num_bodies+j] -= t1;
-            local_force_y[my_rank*world->num_bodies+j] -= t2;
+            omp_set_lock(&locks[i]);
+            force_x[i] += t1;
+            force_y[i] += t2;
+            omp_unset_lock(&locks[i]);
             
-        }
+            omp_set_lock(&locks[j]);
+            force_x[j] -= t1;
+            force_y[j] -= t2;
+            omp_unset_lock(&locks[j]);
+            
+// #           pragma omp critical 
+//             {
+//             force_x[i] += t1;
+//             force_y[i] += t2;
+//             force_x[j] -= t1;
+//             force_y[j] -= t2;
+//             }
+//         }
     }
     
-#   pragma omp for schedule(runtime)        
-    for (i = 0; i < world->num_bodies; ++i) {
-        for (j = 0; j < thread_count; ++j) {
-            force_x[i] += local_force_x[j*world->num_bodies+i];
-            force_y[i] += local_force_y[j*world->num_bodies+i];
-        }
-    }
-    
-    
-#   pragma omp for // schedule(static, world->num_bodies / thread_count)        
+#   pragma omp for //schedule(static, world->num_bodies / thread_count)        
     // Update the velocity and position of each body
     for (i = 0; i < world->num_bodies; i++) {
         // Update velocities
@@ -229,13 +241,13 @@ void position_step(struct world *world, int thread_count, double time_res) {
     }	
 }
 
-void step_world(struct world *world, int thread_count, double time_res) {
+void step_world(struct world *world, int thread_count, double time_res, omp_lock_t locks[]) {
 	
 	struct tms ttt;
 	clock_t start, end;
 	start = times(&ttt);
-#   pragma omp parallel num_threads(thread_count)
-    position_step(world, thread_count, time_res);
+#   pragma omp parallel num_threads(thread_count)    
+    position_step(world, thread_count, time_res, locks);
 	
     end = times(&ttt);
 	total_time += end - start;
@@ -256,6 +268,9 @@ int main(int argc, char **argv) {
     // num_bodies = (argc == 3) ? atoi(argv[1]) : DEF_NUM_BODIES;
     printf("Universe has %d bodies.\n", num_bodies);
     
+    omp_lock_t* locks;
+    locks = malloc(num_bodies*sizeof(omp_lock_t));
+    Init_locks(locks, num_bodies);
     
     /* set up the universe */
     time_t cur_time;
@@ -313,7 +328,7 @@ int main(int argc, char **argv) {
         XCopyArea(disp, back_buf, win, gc, 0, 0, WIDTH, HEIGHT, 0, 0);
 #endif
 
-        step_world(world, thread_count, delta_t);
+        step_world(world, thread_count, delta_t, locks);
 
 		//if you want to watch the process in 60 FPS
 		//nanosleep(&delay, &remaining);
