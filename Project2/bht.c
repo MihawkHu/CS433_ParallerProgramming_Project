@@ -66,7 +66,7 @@ double ALPHA = 0.0001;
 clock_t total_time = 0;
 //total_time.sec = 0;
 //total_time.usec = 0;
-int thread_Count;
+
 struct qNode {
     struct qNode *next;
     struct node *nn;
@@ -284,11 +284,10 @@ void BHT_Force_node(int num, struct world *world, struct node *Root, double *for
 void BHT_Force(struct world *world, struct node *Root, double *force_x, double *force_y) {
     int i;
     struct queue *myQueue;
+    queueInit(&myQueue);
 
-//printf("%d \n",thread_Count);
-#   pragma omp parallel for num_threads(4) private(myQueue)
+//#   pragma omp for
     for(i = 0; i < world->num_bodies; i++) {
-        queueInit(&myQueue);
         push(&myQueue, &Root);
         BHT_Force_node(i, world, Root, force_x, force_y, myQueue);
     }
@@ -475,7 +474,7 @@ void collision_step(struct world *world) {
     }
 }
 
-void step_world(struct world *world, double time_res, int thread_count) {
+void step_world(struct world *world, double time_res) {
 
 	struct tms ttt;
 	clock_t start, end;
@@ -495,8 +494,6 @@ int main(int argc, char **argv) {
 	//total_time.tv_usec = 0;
     /* get num bodies from the command line */
     int num_bodies;
-	int thread_count;
-	thread_Count = atoi(argv[2]);
     num_bodies = atoi(argv[1]);
     printf("Universe has %d bodies.\n", num_bodies);
 
@@ -556,7 +553,7 @@ int main(int argc, char **argv) {
         XCopyArea(disp, back_buf, win, gc, 0, 0, WIDTH, HEIGHT, 0, 0);
 #endif
 
-        step_world(world, delta_t, thread_count);
+        step_world(world, delta_t);
 
 		//if you want to watch the process in 60 FPS
 		//nanosleep(&delay, &remaining);
