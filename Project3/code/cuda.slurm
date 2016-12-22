@@ -3,6 +3,8 @@
 #SBATCH --job-name=cudabench
 #SBATCH --partition=k80
 #SBATCH --gres=gpu:1
+#SBATCH --mail-type=end
+#SBATCH --mail-user=757028105@qq.com
 #SBATCH --output=k80.out
 #SBATCH --error=log.err
 
