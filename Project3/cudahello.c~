@@ -15,7 +15,7 @@ int main()
 	int b[N] = {15, 10, 6, 0, -11, 1, 0};
 
 	char *ad;
-	int *bd;
+	char *bd;
 	const int csize = N*sizeof(char);
 	const int isize = N*sizeof(int);
 
